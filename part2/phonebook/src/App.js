@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import Filter from "./Components/Filter";
 import PersonForm from "./Components/PersonForm";
 import Persons from "./Components/Persons";
-import axios from "axios";
+import phonebookServices from "./services";
 
 const App = () => {
   const [persons, setPersons] = useState([]);
@@ -12,20 +12,54 @@ const App = () => {
   const [newFilter, setNewFilter] = useState("");
 
   useEffect(() => {
-    console.log("effect");
-    axios.get("http://localhost:3001/persons").then((response) => {
-      console.log("promise fulfilled");
+    phonebookServices.getAll().then((response) => {
       setPersons(response.data);
     });
   }, []);
 
   const handleOnClick = (event) => {
     event.preventDefault();
-    let inArray = persons.filter((person) => person.name === newName);
-    if (inArray.length > 0) {
-      alert(`${newName} is already added to phonebook`);
+    let changedPerson = persons.filter((person) => person.name === newName);
+    if (changedPerson.length > 0) {
+      if (
+        window.confirm(
+          `${newName} is already added to phonebook replace old number with new?`
+        )
+      ) {
+        console.log(changedPerson[0]);
+        phonebookServices
+          .update(changedPerson[0].id, {
+            ...changedPerson,
+            number: newPhoneNumber,
+          })
+          .then((response) => {
+            setPersons(
+              persons.map((person) =>
+                person.id !== changedPerson.id ? person : response.data
+              )
+            );
+          });
+      }
     } else {
-      setPersons(persons.concat({ name: newName, number: newPhoneNumber }));
+      let newEntryObject = { name: newName, number: newPhoneNumber };
+      phonebookServices.create(newEntryObject).then((response) => {
+        setPersons(persons.concat(response.data));
+      });
+    }
+  };
+
+  const handleDelete = (id) => {
+    let copyObj = persons.filter((person) => person.id !== id);
+    console.log(copyObj);
+    if (window.confirm(`Do you really want to delete ${copyObj[0].name}`)) {
+      phonebookServices
+        .remove(id)
+        .then((response) => {
+          setPersons(copyObj);
+        })
+        .catch((error) => {
+          alert(`error occured`, error);
+        });
     }
   };
 
@@ -71,7 +105,7 @@ const App = () => {
 
       <h3>Numbers</h3>
 
-      <Persons personsToShow={personsToShow} />
+      <Persons personsToShow={personsToShow} handleDelete={handleDelete} />
     </div>
   );
 };
